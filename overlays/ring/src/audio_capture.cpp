@@ -115,6 +115,38 @@ bool AudioCapture::getSpectrum(std::array<float, SpectrumBins>& outValues) {
     return true;
 }
 
+bool AudioCapture::getStereoRMS(float& outLeft, float& outRight) {
+    std::scoped_lock lock(m_mutex);
+    outLeft = m_stereoLeftRMS;
+    outRight = m_stereoRightRMS;
+    return true;
+}
+
+float AudioCapture::getStereoWidth() const {
+    return m_stereoWidth;
+}
+
+float AudioCapture::getStereoWidthVariance() const {
+    return m_stereoWidthVariance;
+}
+
+float AudioCapture::getChannelCorrelation() const {
+    return m_channelCorrelation;
+}
+
+bool AudioCapture::getRawSamples(std::vector<float>& outLeft, std::vector<float>& outRight, size_t& outSampleRate) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    outLeft = m_rawLeftChannel;
+    outRight = m_rawRightChannel;
+    outSampleRate = m_sampleRate;
+
+    // Clear buffers after retrieval to avoid processing same audio twice
+    m_rawLeftChannel.clear();
+    m_rawRightChannel.clear();
+
+    return !outLeft.empty();
+}
+
 bool AudioCapture::initializeClient() {
     ComPtr<IMMDeviceEnumerator> enumerator;
     HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL, IID_PPV_ARGS(&enumerator));
@@ -197,6 +229,7 @@ bool AudioCapture::initializeClient() {
 
     m_channelEnergy.assign(m_channelsCount, 0.0);
     m_channelSampleCount.assign(m_channelsCount, 0u);
+    m_channelSumProduct.assign(m_channelsCount, 0.0);
     m_accumulatedFrames = 0;
 
     return true;
@@ -362,26 +395,59 @@ void AudioCapture::appendSamples(const BYTE* data, size_t frames, DWORD flags, b
         return;
     }
 
+    // Store raw samples for speech recognition (limit to ~1 second)
+    constexpr size_t MAX_RAW_SAMPLES = 48000;
+
     if (m_sampleFormat == SampleFormat::Float32) {
         const float* samples = reinterpret_cast<const float*>(data);
         for (size_t frame = 0; frame < frames; ++frame) {
+            // Store raw L/R channels
+            if (m_channelsCount >= 2) {
+                m_rawLeftChannel.push_back(samples[frame * m_channelsCount + 0]);
+                m_rawRightChannel.push_back(samples[frame * m_channelsCount + 1]);
+            }
+
             for (UINT ch = 0; ch < m_channelsCount; ++ch) {
                 float sample = samples[frame * m_channelsCount + ch];
                 double value = static_cast<double>(sample);
                 m_channelEnergy[ch] += value * value;
                 m_channelSampleCount[ch] += 1;
             }
+            // Track L*R product for correlation (first 2 channels)
+            if (m_channelsCount >= 2) {
+                double L = static_cast<double>(samples[frame * m_channelsCount + 0]);
+                double R = static_cast<double>(samples[frame * m_channelsCount + 1]);
+                m_channelSumProduct[0] += L * R;
+            }
         }
     } else {
         const int16_t* samples = reinterpret_cast<const int16_t*>(data);
         constexpr double norm = 1.0 / 32768.0;
         for (size_t frame = 0; frame < frames; ++frame) {
+            // Store raw L/R channels
+            if (m_channelsCount >= 2) {
+                m_rawLeftChannel.push_back(static_cast<float>(samples[frame * m_channelsCount + 0]) * static_cast<float>(norm));
+                m_rawRightChannel.push_back(static_cast<float>(samples[frame * m_channelsCount + 1]) * static_cast<float>(norm));
+            }
+
             for (UINT ch = 0; ch < m_channelsCount; ++ch) {
                 double sample = static_cast<double>(samples[frame * m_channelsCount + ch]) * norm;
                 m_channelEnergy[ch] += sample * sample;
                 m_channelSampleCount[ch] += 1;
             }
+            // Track L*R product for correlation (first 2 channels)
+            if (m_channelsCount >= 2) {
+                double L = static_cast<double>(samples[frame * m_channelsCount + 0]) * norm;
+                double R = static_cast<double>(samples[frame * m_channelsCount + 1]) * norm;
+                m_channelSumProduct[0] += L * R;
+            }
         }
+    }
+
+    // Limit raw buffer size
+    if (m_rawLeftChannel.size() > MAX_RAW_SAMPLES) {
+        m_rawLeftChannel.erase(m_rawLeftChannel.begin(), m_rawLeftChannel.begin() + (m_rawLeftChannel.size() - MAX_RAW_SAMPLES));
+        m_rawRightChannel.erase(m_rawRightChannel.begin(), m_rawRightChannel.begin() + (m_rawRightChannel.size() - MAX_RAW_SAMPLES));
     }
 
     m_accumulatedFrames += frames;
@@ -427,8 +493,11 @@ void AudioCapture::computeSpectrum() {
         }
         double meanSquare = m_channelEnergy[ch] / static_cast<double>(count);
         double rms = std::sqrt(std::max(meanSquare, 0.0));
-        float amplitude = static_cast<float>(std::log10(1.0 + rms * 80.0));
-        amplitude = std::clamp(amplitude, 0.0f, 1.2f);
+
+        // Much higher sensitivity for quiet sounds - use power scaling
+        // Square root makes quiet sounds much more visible
+        float amplitude = std::pow(static_cast<float>(rms), 0.4f) * 2.5f; // Higher amplification
+        amplitude = std::clamp(amplitude, 0.0f, 1.5f);
         accumulate(m_channels[ch].angleDegrees, amplitude);
     }
 
@@ -452,10 +521,85 @@ void AudioCapture::computeSpectrum() {
             float clamped = std::clamp(blurred[i], 0.0f, 1.0f);
             m_spectrum[i] = m_spectrum[i] * 0.6f + clamped * 0.4f;
         }
+
+        // Compute stereo L/R RMS from first two channels
+        if (m_channelsCount >= 2 && m_channelSampleCount.size() >= 2) {
+            // Left channel (index 0)
+            if (m_channelSampleCount[0] > 0) {
+                double meanSquareL = m_channelEnergy[0] / static_cast<double>(m_channelSampleCount[0]);
+                float rmsL = static_cast<float>(std::sqrt(std::max(meanSquareL, 0.0)));
+                m_stereoLeftRMS = m_stereoLeftRMS * 0.7f + rmsL * 0.3f; // Smooth
+            }
+
+            // Right channel (index 1)
+            if (m_channelSampleCount[1] > 0) {
+                double meanSquareR = m_channelEnergy[1] / static_cast<double>(m_channelSampleCount[1]);
+                float rmsR = static_cast<float>(std::sqrt(std::max(meanSquareR, 0.0)));
+                m_stereoRightRMS = m_stereoRightRMS * 0.7f + rmsR * 0.3f; // Smooth
+            }
+        } else if (m_channelsCount == 1 && m_channelSampleCount.size() >= 1) {
+            // Mono: use same value for both
+            if (m_channelSampleCount[0] > 0) {
+                double meanSquare = m_channelEnergy[0] / static_cast<double>(m_channelSampleCount[0]);
+                float rms = static_cast<float>(std::sqrt(std::max(meanSquare, 0.0)));
+                m_stereoLeftRMS = m_stereoLeftRMS * 0.7f + rms * 0.3f;
+                m_stereoRightRMS = m_stereoRightRMS * 0.7f + rms * 0.3f;
+            }
+        }
+
+        // Calculate stereo width: 0.0 = mono/centered, higher = stereo/panned
+        float sum = m_stereoLeftRMS + m_stereoRightRMS;
+        if (sum > 0.001f) {
+            float diff = std::abs(m_stereoLeftRMS - m_stereoRightRMS);
+            float targetWidth = diff / sum;
+            m_stereoWidth = m_stereoWidth * 0.8f + targetWidth * 0.2f; // Smooth
+        } else {
+            m_stereoWidth = 0.0f;
+        }
+
+        // Calculate L/R channel correlation (Pearson correlation coefficient)
+        if (m_channelsCount >= 2 && m_channelSampleCount[0] > 0 && m_channelSampleCount[1] > 0) {
+            double sumLR = m_channelSumProduct[0];
+            double sumL2 = m_channelEnergy[0];
+            double sumR2 = m_channelEnergy[1];
+
+            // Correlation = E[LR] / sqrt(E[L²] * E[R²])
+            // Simplified since we don't track means separately
+            double denominator = std::sqrt(sumL2 * sumR2);
+            if (denominator > 0.0) {
+                float correlation = static_cast<float>(sumLR / denominator);
+                correlation = std::clamp(correlation, -1.0f, 1.0f);
+                m_channelCorrelation = m_channelCorrelation * 0.8f + correlation * 0.2f; // Smooth
+            }
+        }
+
+        // Track stereo width variance over time
+        m_stereoWidthHistory.push_back(m_stereoWidth);
+        if (m_stereoWidthHistory.size() > kStereoWidthHistorySize) {
+            m_stereoWidthHistory.erase(m_stereoWidthHistory.begin());
+        }
+
+        // Calculate variance
+        if (m_stereoWidthHistory.size() > 10) { // Need some samples
+            float mean = 0.0f;
+            for (float val : m_stereoWidthHistory) {
+                mean += val;
+            }
+            mean /= static_cast<float>(m_stereoWidthHistory.size());
+
+            float variance = 0.0f;
+            for (float val : m_stereoWidthHistory) {
+                float diff = val - mean;
+                variance += diff * diff;
+            }
+            variance /= static_cast<float>(m_stereoWidthHistory.size());
+            m_stereoWidthVariance = variance;
+        }
     }
 
     std::fill(m_channelEnergy.begin(), m_channelEnergy.end(), 0.0);
     std::fill(m_channelSampleCount.begin(), m_channelSampleCount.end(), 0u);
+    std::fill(m_channelSumProduct.begin(), m_channelSumProduct.end(), 0.0);
     if (m_accumulatedFrames >= m_hopSize) {
         m_accumulatedFrames -= m_hopSize;
     } else {

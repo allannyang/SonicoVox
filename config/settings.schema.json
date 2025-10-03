@@ -1,0 +1,394 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://sonicovox.dev/schemas/settings.json",
+  "title": "SonicoVox Settings",
+  "description": "Configuration schema for SonicoVox audio visualization and captioning suite",
+  "type": "object",
+  "required": ["version", "overlays"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Settings schema version",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "overlays": {
+      "type": "object",
+      "description": "Overlay configuration",
+      "properties": {
+        "ring": {
+          "type": "object",
+          "description": "Ring visualizer overlay settings",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable ring overlay on startup"
+            },
+            "monitor": {
+              "type": "integer",
+              "description": "Monitor index (0-based)",
+              "minimum": 0
+            },
+            "position": {
+              "type": "object",
+              "description": "Normalized position on screen (0.0-1.0)",
+              "properties": {
+                "x": {
+                  "type": "number",
+                  "minimum": 0.0,
+                  "maximum": 1.0
+                },
+                "y": {
+                  "type": "number",
+                  "minimum": 0.0,
+                  "maximum": 1.0
+                }
+              },
+              "required": ["x", "y"]
+            },
+            "scale": {
+              "type": "number",
+              "description": "Scale factor for ring size",
+              "minimum": 0.1,
+              "maximum": 5.0
+            },
+            "opacity": {
+              "type": "number",
+              "description": "Global opacity multiplier",
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "click_through": {
+              "type": "boolean",
+              "description": "Enable click-through mode (WS_EX_TRANSPARENT)"
+            },
+            "visual": {
+              "type": "object",
+              "description": "Visual appearance settings",
+              "properties": {
+                "base_radius_ratio": {
+                  "type": "number",
+                  "description": "Inner radius as ratio of min screen dimension",
+                  "minimum": 0.05,
+                  "maximum": 0.5
+                },
+                "ring_thickness_ratio": {
+                  "type": "number",
+                  "description": "Ring thickness as ratio of min screen dimension",
+                  "minimum": 0.01,
+                  "maximum": 0.2
+                },
+                "amplitude_scale": {
+                  "type": "number",
+                  "description": "Amplitude response scaling factor",
+                  "minimum": 0.0,
+                  "maximum": 0.5
+                },
+                "color_scheme": {
+                  "type": "string",
+                  "enum": ["default", "warm", "cool", "monochrome", "rainbow", "custom"]
+                },
+                "colors": {
+                  "type": "object",
+                  "description": "Custom color configuration (for 'custom' scheme)",
+                  "properties": {
+                    "base_r": {
+                      "type": "number",
+                      "minimum": 0.0,
+                      "maximum": 1.0
+                    },
+                    "base_g": {
+                      "type": "number",
+                      "minimum": 0.0,
+                      "maximum": 1.0
+                    },
+                    "base_b": {
+                      "type": "number",
+                      "minimum": 0.0,
+                      "maximum": 1.0
+                    },
+                    "intensity_scale": {
+                      "type": "number",
+                      "minimum": 0.0,
+                      "maximum": 1.0
+                    }
+                  }
+                }
+              }
+            },
+            "audio": {
+              "type": "object",
+              "description": "Audio processing parameters",
+              "properties": {
+                "spectrum_bins": {
+                  "type": "integer",
+                  "description": "Number of spectrum bins",
+                  "minimum": 16,
+                  "maximum": 256
+                },
+                "window_size": {
+                  "type": "integer",
+                  "description": "FFT window size in samples",
+                  "minimum": 512,
+                  "maximum": 8192
+                },
+                "hop_size": {
+                  "type": "integer",
+                  "description": "Hop size in samples",
+                  "minimum": 128,
+                  "maximum": 4096
+                },
+                "smoothing_factor": {
+                  "type": "number",
+                  "description": "Temporal smoothing (0.0 = no smoothing, 1.0 = max smoothing)",
+                  "minimum": 0.0,
+                  "maximum": 1.0
+                }
+              }
+            }
+          }
+        },
+        "subtitles": {
+          "type": "object",
+          "description": "Subtitle overlay settings",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable subtitle overlay on startup"
+            },
+            "monitor": {
+              "type": "integer",
+              "description": "Monitor index (0-based)",
+              "minimum": 0
+            },
+            "anchor": {
+              "type": "string",
+              "enum": ["top_left", "top_center", "top_right", "middle_left", "middle_center", "middle_right", "bottom_left", "bottom_center", "bottom_right"]
+            },
+            "max_lines": {
+              "type": "integer",
+              "description": "Maximum visible caption lines",
+              "minimum": 1,
+              "maximum": 10
+            },
+            "font_size_pt": {
+              "type": "integer",
+              "description": "Font size in points",
+              "minimum": 8,
+              "maximum": 72
+            },
+            "box_opacity": {
+              "type": "number",
+              "description": "Background box opacity",
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "margin_px": {
+              "type": "integer",
+              "description": "Margin from screen edge in pixels",
+              "minimum": 0,
+              "maximum": 500
+            },
+            "click_through": {
+              "type": "boolean",
+              "description": "Enable click-through mode"
+            }
+          }
+        }
+      }
+    },
+    "audio": {
+      "type": "object",
+      "description": "Global audio capture settings",
+      "properties": {
+        "capture": {
+          "type": "object",
+          "properties": {
+            "device_id": {
+              "type": "string",
+              "description": "Audio device ID or 'default'"
+            },
+            "loopback_mode": {
+              "type": "boolean",
+              "description": "Enable WASAPI loopback capture"
+            },
+            "sample_rate": {
+              "type": "integer",
+              "description": "Preferred sample rate (Hz)",
+              "enum": [44100, 48000, 96000]
+            },
+            "buffer_duration_ms": {
+              "type": "integer",
+              "description": "Buffer duration in milliseconds",
+              "minimum": 100,
+              "maximum": 1000
+            }
+          }
+        }
+      }
+    },
+    "hotkeys": {
+      "type": "object",
+      "description": "Global hotkey bindings",
+      "patternProperties": {
+        ".*": {
+          "type": "object",
+          "properties": {
+            "modifiers": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["ctrl", "alt", "shift", "win"]
+              }
+            },
+            "key": {
+              "type": "string",
+              "description": "Key name (A-Z, 0-9, Space, etc.)"
+            },
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "required": ["modifiers", "key", "enabled"]
+        }
+      }
+    },
+    "stt": {
+      "type": "object",
+      "description": "Speech-to-text configuration",
+      "properties": {
+        "engine": {
+          "type": "string",
+          "enum": ["whisper", "none"]
+        },
+        "model_path": {
+          "type": "string",
+          "description": "Path to STT model file"
+        },
+        "language": {
+          "type": "string",
+          "description": "ISO 639-1 language code",
+          "pattern": "^[a-z]{2}$"
+        },
+        "translate": {
+          "type": "boolean",
+          "description": "Translate to English"
+        },
+        "vad_enabled": {
+          "type": "boolean",
+          "description": "Voice activity detection"
+        },
+        "vad_threshold": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        }
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "description": "Privacy and data retention settings",
+      "properties": {
+        "persist_audio": {
+          "type": "boolean",
+          "description": "Save audio to disk (disabled by default)"
+        },
+        "persist_transcripts": {
+          "type": "boolean",
+          "description": "Save transcripts to disk (disabled by default)"
+        },
+        "telemetry_enabled": {
+          "type": "boolean",
+          "description": "Anonymous usage telemetry (disabled by default)"
+        }
+      }
+    },
+    "ui": {
+      "type": "object",
+      "description": "Main application UI settings",
+      "properties": {
+        "theme": {
+          "type": "string",
+          "enum": ["dark", "light", "system"]
+        },
+        "font_size": {
+          "type": "integer",
+          "minimum": 8,
+          "maximum": 24
+        },
+        "show_fps": {
+          "type": "boolean"
+        },
+        "show_stats": {
+          "type": "boolean"
+        },
+        "window_position": {
+          "type": "object",
+          "properties": {
+            "x": {
+              "type": "integer"
+            },
+            "y": {
+              "type": "integer"
+            }
+          }
+        },
+        "window_size": {
+          "type": "object",
+          "properties": {
+            "width": {
+              "type": "integer",
+              "minimum": 400
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 300
+            }
+          }
+        }
+      }
+    },
+    "ipc": {
+      "type": "object",
+      "description": "Inter-process communication settings",
+      "properties": {
+        "pipe_name_ring": {
+          "type": "string",
+          "description": "Named pipe for ring overlay"
+        },
+        "pipe_name_captions": {
+          "type": "string",
+          "description": "Named pipe for caption overlay"
+        },
+        "buffer_size": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 65536
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 10000
+        }
+      }
+    },
+    "logging": {
+      "type": "object",
+      "description": "Logging configuration",
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["trace", "debug", "info", "warning", "error", "critical"]
+        },
+        "console_output": {
+          "type": "boolean"
+        },
+        "file_output": {
+          "type": "boolean"
+        },
+        "log_directory": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

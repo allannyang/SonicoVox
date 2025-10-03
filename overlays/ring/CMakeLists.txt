@@ -9,6 +9,10 @@ set(SV_RING_SOURCES
     src/overlay_window.cpp
     src/audio_capture.cpp
     src/ring_renderer.cpp
+    src/speech_service.cpp
+    src/subtitle_renderer.cpp
+    src/speech_recognizer.cpp
+    src/vosk_recognizer.cpp
 )
 add_executable(sv_overlay_ring WIN32 ${SV_RING_SOURCES})
 

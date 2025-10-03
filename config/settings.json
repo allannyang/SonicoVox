@@ -1,0 +1,132 @@
+{
+  "$schema": "./settings.schema.json",
+  "version": "1.0.0",
+  "overlays": {
+    "ring": {
+      "enabled": true,
+      "monitor": 0,
+      "position": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "scale": 1.0,
+      "opacity": 1.0,
+      "click_through": true,
+      "visual": {
+        "base_radius_ratio": 0.12,
+        "ring_thickness_ratio": 0.032,
+        "amplitude_scale": 0.085,
+        "color_scheme": "default",
+        "colors": {
+          "base_r": 0.2,
+          "base_g": 0.4,
+          "base_b": 1.0,
+          "intensity_scale": 0.5
+        }
+      },
+      "audio": {
+        "spectrum_bins": 64,
+        "window_size": 2048,
+        "hop_size": 512,
+        "smoothing_factor": 0.6
+      }
+    },
+    "subtitles": {
+      "enabled": false,
+      "monitor": 0,
+      "anchor": "bottom_center",
+      "max_lines": 2,
+      "font_size_pt": 24,
+      "box_opacity": 0.7,
+      "margin_px": 32,
+      "click_through": false,
+      "visual": {
+        "font_family": "Segoe UI",
+        "font_weight": "normal",
+        "text_color": {
+          "r": 1.0,
+          "g": 1.0,
+          "b": 1.0,
+          "a": 1.0
+        },
+        "background_color": {
+          "r": 0.0,
+          "g": 0.0,
+          "b": 0.0,
+          "a": 0.7
+        },
+        "outline_width": 2,
+        "shadow_offset": 2
+      }
+    }
+  },
+  "audio": {
+    "capture": {
+      "device_id": "default",
+      "loopback_mode": true,
+      "sample_rate": 48000,
+      "buffer_duration_ms": 333
+    }
+  },
+  "hotkeys": {
+    "toggle_ring_overlay": {
+      "modifiers": ["ctrl", "shift"],
+      "key": "V",
+      "enabled": true
+    },
+    "toggle_subtitle_overlay": {
+      "modifiers": ["ctrl", "shift"],
+      "key": "C",
+      "enabled": false
+    },
+    "acknowledge_cue": {
+      "modifiers": ["ctrl"],
+      "key": "Space",
+      "enabled": false
+    },
+    "toggle_captions": {
+      "modifiers": ["ctrl", "shift"],
+      "key": "T",
+      "enabled": false
+    }
+  },
+  "stt": {
+    "engine": "whisper",
+    "model_path": "./models/ggml-base.en.bin",
+    "language": "en",
+    "translate": false,
+    "vad_enabled": true,
+    "vad_threshold": 0.5
+  },
+  "privacy": {
+    "persist_audio": false,
+    "persist_transcripts": false,
+    "telemetry_enabled": false
+  },
+  "ui": {
+    "theme": "dark",
+    "font_size": 14,
+    "show_fps": false,
+    "show_stats": true,
+    "window_position": {
+      "x": -1,
+      "y": -1
+    },
+    "window_size": {
+      "width": 800,
+      "height": 600
+    }
+  },
+  "ipc": {
+    "pipe_name_ring": "\\\\.\\pipe\\sv_bus_ring",
+    "pipe_name_captions": "\\\\.\\pipe\\sv_bus_captions",
+    "buffer_size": 8192,
+    "timeout_ms": 1000
+  },
+  "logging": {
+    "level": "info",
+    "console_output": true,
+    "file_output": false,
+    "log_directory": "./logs"
+  }
+}

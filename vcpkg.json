@@ -1,0 +1,22 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "sonicovox",
+  "version-semver": "0.1.0",
+  "description": "Real-time spatial audio visualization and live captioning for Windows",
+  "homepage": "https://github.com/yourusername/sonicovox",
+  "license": "TBD",
+  "supports": "windows",
+  "dependencies": [
+    {
+      "name": "imgui",
+      "version>=": "1.90.0",
+      "features": ["docking-experimental", "win32-binding", "dx11-binding"]
+    },
+    {
+      "name": "nlohmann-json",
+      "version>=": "3.11.0"
+    }
+  ],
+  "builtin-baseline": "a42af01b72c28a8e1d7b48107b33e4f286a55ef6",
+  "overrides": []
+}

@@ -23,6 +23,11 @@ public:
     void shutdown();
 
     bool getSpectrum(std::array<float, SpectrumBins>& outValues);
+    bool getStereoRMS(float& outLeft, float& outRight);
+    float getStereoWidth() const;
+    float getStereoWidthVariance() const;
+    float getChannelCorrelation() const;
+    bool getRawSamples(std::vector<float>& outLeft, std::vector<float>& outRight, size_t& outSampleRate);
     const std::wstring& lastError() const { return m_lastError; }
 
 private:
@@ -55,10 +60,24 @@ private:
 
     std::mutex m_mutex;
     std::array<float, SpectrumBins> m_spectrum{};
+    float m_stereoLeftRMS = 0.0f;
+    float m_stereoRightRMS = 0.0f;
+    float m_stereoWidth = 0.0f;
+
+    // Raw sample buffers for speech recognition
+    std::vector<float> m_rawLeftChannel;
+    std::vector<float> m_rawRightChannel;
+
+    // Mono detection tracking
+    std::vector<float> m_stereoWidthHistory;
+    float m_stereoWidthVariance = 0.0f;
+    float m_channelCorrelation = 0.0f;
+    static constexpr size_t kStereoWidthHistorySize = 60; // ~2 seconds at 30fps
 
     std::vector<ChannelInfo> m_channels;
     std::vector<double> m_channelEnergy;
     std::vector<size_t> m_channelSampleCount;
+    std::vector<double> m_channelSumProduct; // For correlation calculation
     size_t m_accumulatedFrames = 0;
 
     WAVEFORMATEX* m_mixFormat = nullptr;

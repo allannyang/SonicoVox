@@ -3,6 +3,7 @@
 #include "ring/audio_capture.hpp"
 #include "ring/overlay_window.hpp"
 #include "ring/ring_renderer.hpp"
+#include "ring/speech_service.hpp"
 
 #include <array>
 #include <atomic>
@@ -26,6 +27,7 @@ private:
     OverlayWindow m_window;
     RingRenderer m_renderer;
     AudioCapture m_audioCapture;
+    SpeechService m_speechService;
 
     std::array<float, AudioCapture::SpectrumBins> m_spectrum{};
     std::wstring m_startupError;

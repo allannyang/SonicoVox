@@ -151,14 +151,15 @@ bool OverlayWindow::createWindow(HINSTANCE instance) {
         return false;
     }
 
-    m_width = static_cast<UINT>(monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left);
-    m_height = static_cast<UINT>(monitorInfo.rcMonitor.bottom - monitorInfo.rcMonitor.top);
+    // Use work area instead of full monitor to exclude taskbar
+    m_width = static_cast<UINT>(monitorInfo.rcWork.right - monitorInfo.rcWork.left);
+    m_height = static_cast<UINT>(monitorInfo.rcWork.bottom - monitorInfo.rcWork.top);
 
     DWORD exStyle = WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT;
     DWORD style = WS_POPUP;
 
     m_hwnd = CreateWindowExW(exStyle, kWindowClassName, L"SonicoVox Ring Overlay", style,
-                             monitorInfo.rcMonitor.left, monitorInfo.rcMonitor.top,
+                             monitorInfo.rcWork.left, monitorInfo.rcWork.top,
                              static_cast<int>(m_width), static_cast<int>(m_height),
                              nullptr, nullptr, instance, this);
     if (!m_hwnd) {
